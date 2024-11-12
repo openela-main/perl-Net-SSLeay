@@ -5,10 +5,10 @@
 %endif
 
 Name:		perl-Net-SSLeay
-Version:	1.92
-Release:	2%{?dist}
+Version:	1.94
+Release:	1%{?dist}
 Summary:	Perl extension for using OpenSSL
-License:	Artistic 2.0
+License:	Artistic-2.0
 URL:		https://metacpan.org/release/Net-SSLeay
 Source0:	https://cpan.metacpan.org/modules/by-module/Net/Net-SSLeay-%{version}.tar.gz
 Patch1:		Net-SSLeay-1.90-pkgconfig.patch
@@ -24,7 +24,6 @@ BuildRequires:	perl-devel
 BuildRequires:	perl-generators
 BuildRequires:	perl-interpreter
 BuildRequires:	perl(constant)
-BuildRequires:	perl(Cwd)
 BuildRequires:	perl(English)
 BuildRequires:	perl(ExtUtils::MakeMaker) >= 6.76
 BuildRequires:	perl(ExtUtils::PkgConfig)
@@ -38,40 +37,49 @@ BuildRequires:	perl(utf8)
 # =========== Module Runtime =========================
 BuildRequires:	perl(AutoLoader)
 BuildRequires:	perl(Carp)
+BuildRequires:	perl(Errno)
 BuildRequires:	perl(Exporter)
 BuildRequires:	perl(MIME::Base64)
 BuildRequires:	perl(Socket)
+BuildRequires:	perl(vars)
 BuildRequires:	perl(XSLoader)
 # =========== Test Suite =============================
+BuildRequires:	perl(base)
 BuildRequires:	perl(Config)
+BuildRequires:	perl(Cwd)
 BuildRequires:	perl(File::Spec)
 BuildRequires:	perl(FindBin)
 BuildRequires:	perl(HTTP::Tiny)
 BuildRequires:	perl(IO::Handle)
 BuildRequires:	perl(IO::Socket::INET)
 BuildRequires:	perl(lib)
+BuildRequires:	perl(Scalar::Util)
+BuildRequires:	perl(SelectSaver)
 BuildRequires:	perl(Storable)
 BuildRequires:	perl(strict)
 BuildRequires:	perl(Test::Builder)
 BuildRequires:	perl(Test::More) >= 0.61
 BuildRequires:	perl(threads)
 BuildRequires:	perl(warnings)
-# =========== Optional Test Suite ====================
+# =========== Optional Tests =========================
 %if %{with perl_Net_SSLeay_enables_optional_test}
-BuildRequires:	perl(Test::Exception)
+BuildRequires:	perl(Crypt::OpenSSL::Bignum)
 # Test::Kwalitee 1.00 not used
-BuildRequires:	perl(Test::NoWarnings)
-BuildRequires:	perl(Test::Pod) >= 1.0
+BuildRequires:	perl(Test::Pod) >= 1.41
 # Test::Pod::Coverage 1.00 not used
-BuildRequires:	perl(Test::Warn)
 %endif
-# =========== Module Runtime =========================
+# =========== Module Dependencies ====================
 Requires:	perl(:MODULE_COMPAT_%(eval "`perl -V:version`"; echo $version))
 Requires:	perl(MIME::Base64)
 Requires:	perl(XSLoader)
 
 # Don't "provide" private Perl libs or the redundant unversioned perl(Net::SSLeay) provide
 %global __provides_exclude ^(perl\\(Net::SSLeay\\)$|SSLeay\\.so)
+
+# Filter modules bundled for tests
+%global __provides_exclude_from %{?__provides_exclude_from:%__provides_exclude_from|}^%{_libexecdir}
+%global __requires_exclude %{?__requires_exclude:%__requires_exclude|}^perl\\(Test::Net::SSLeay.*\\)
+%global __requires_exclude %{__requires_exclude}|^perl\\(Net::PcapWriter\\)
 
 %description
 This module offers some high level convenience functions for accessing
@@ -80,18 +88,33 @@ accessing http servers, too), a sslcat() function for writing your own
 clients, and finally access to the SSL API of SSLeay/OpenSSL package
 so you can write servers or clients for more complicated applications.
 
+%package tests
+Summary:        Tests for %{name}
+Requires:       %{name} = %{?epoch:%{epoch}:}%{version}-%{release}
+Requires:       perl-Test-Harness
+
+%description tests
+Tests from %{name}. Execute them
+with "%{_libexecdir}/%{name}/test".
+
 %prep
 %setup -q -n Net-SSLeay-%{version}
 
 # Get libraries to link against from pkg-config
 # https://github.com/radiator-software/p5-net-ssleay/pull/127
-%patch1
+%patch -P1
 
 # Disable TLS1 and TLS1_1 from tests
-%patch2 -p1
+%patch -P2 -p1
 
 # Fix permissions in examples to avoid bogus doc-file dependencies
 chmod -c 644 examples/*
+
+# Help generators to recognize Perl scripts
+for F in `find t -name *.t -o -name *.pl`; do
+    perl -i -MConfig -ple 'print $Config{startperl} if $. == 1 && !s{\A#!.*perl\b}{$Config{startperl}}' "$F"
+    chmod +x "$F"
+done
 
 %build
 unset OPENSSL_PREFIX
@@ -99,7 +122,7 @@ PERL_MM_USE_DEFAULT=1 perl Makefile.PL \
 	INSTALLDIRS=vendor \
 	NO_PACKLIST=1 \
 	NO_PERLLOCAL=1 \
-	OPTIMIZE="%{optflags}" </dev/null
+	OPTIMIZE="%{optflags}" < /dev/null
 %{make_build}
 
 %install
@@ -109,6 +132,21 @@ find %{buildroot} -type f -name '*.bs' -empty -delete
 
 # Remove script we don't want packaged
 rm -f %{buildroot}%{perl_vendorarch}/Net/ptrtstrun.pl
+
+# Install tests
+mkdir -p %{buildroot}%{_libexecdir}/%{name}
+cp -a t inc %{buildroot}%{_libexecdir}/%{name}
+rm %{buildroot}%{_libexecdir}/%{name}/t/external/ocsp.t
+rm %{buildroot}%{_libexecdir}/%{name}/t/local/kwalitee.t
+rm %{buildroot}%{_libexecdir}/%{name}/t/local/02_pod_coverage.t
+
+cat > %{buildroot}%{_libexecdir}/%{name}/test << 'EOF'
+#!/bin/sh
+unset RELEASE_TESTING
+cd %{_libexecdir}/%{name} && exec prove -I . -r -j "$(getconf _NPROCESSORS_ONLN)"
+EOF
+chmod +x %{buildroot}%{_libexecdir}/%{name}/test
+
 
 %check
 unset RELEASE_TESTING
@@ -125,7 +163,32 @@ OPENSSL_ENABLE_SHA1_SIGNATURES=1 make test
 %{_mandir}/man3/Net::SSLeay.3*
 %{_mandir}/man3/Net::SSLeay::Handle.3*
 
+%files tests
+%{_libexecdir}/%{name}
+
 %changelog
+* Mon Jun 17 2024 Jitka Plesnikova <jplesnik@redhat.com> - 1.94-1
+- Resolves: RHEL-40758
+- Update to 1.94
+  - Net::SSLeay now officially supports all stable releases of OpenSSL 3.1 and
+    3.2, and LibreSSL 3.5-3.8
+  - Many noisy compiler warnings have been silenced - if SSLeay.xs fails to
+    compile, it should now be much easier to identify the cause
+  - libcrypto's OPENSSL_init_crypto() function and libssl's OPENSSL_init_ssl()
+    function are now exposed, enabling fine-grained control over the
+    initialisation and configuration of both libraries
+  - libssl functions implementing TLS 1.3 PSK authentication are now exposed,
+    in particular SSL_CTX_set_psk_find_session_callback() (on the server side)
+    and SSL_CTX_set_psk_use_session_callback() (on the client side)
+  - libssl functions implementing server-side TLS 1.2 PSK authentication are
+    now exposed, in particular SSL_CTX_set_psk_server_callback()
+  - libssl's SSL_CTX_set_client_hello_cb() function is now exposed, allowing a
+    TLS server to set a callback function that is executed when the server
+    processes a ClientHello message
+  - Many more libcrypto/libssl constants and functions are now exposed; see the
+    release notes for the 1.93 developer releases for a full list
+- Package tests
+
 * Wed Jul 27 2022 Jitka Plesnikova <jplesnik@redhat.com> - 1.92-2
 - Enable using SHA1 for tests
 - Resolves: rhbz#2107670
