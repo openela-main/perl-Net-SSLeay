@@ -6,13 +6,14 @@
 
 Name:		perl-Net-SSLeay
 Version:	1.94
-Release:	1%{?dist}
+Release:	3%{?dist}
 Summary:	Perl extension for using OpenSSL
 License:	Artistic-2.0
 URL:		https://metacpan.org/release/Net-SSLeay
 Source0:	https://cpan.metacpan.org/modules/by-module/Net/Net-SSLeay-%{version}.tar.gz
 Patch1:		Net-SSLeay-1.90-pkgconfig.patch
 Patch2:		Net-SSLeay-1.90-openssl3.0.0-tests-disable_TLS1_and_TLS1_1.patch
+Patch3:		Net-SSLeay-1.94-openssl3.4.0-tests-fix.patch
 # =========== Module Build ===========================
 BuildRequires:	coreutils
 BuildRequires:	findutils
@@ -107,6 +108,10 @@ with "%{_libexecdir}/%{name}/test".
 # Disable TLS1 and TLS1_1 from tests
 %patch -P2 -p1
 
+# Fix test suite to work with OpenSSL 3.4.0 and newer
+# https://github.com/radiator-software/p5-net-ssleay/pull/520
+%patch -P3 -p1
+
 # Fix permissions in examples to avoid bogus doc-file dependencies
 chmod -c 644 examples/*
 
@@ -147,7 +152,6 @@ cd %{_libexecdir}/%{name} && exec prove -I . -r -j "$(getconf _NPROCESSORS_ONLN)
 EOF
 chmod +x %{buildroot}%{_libexecdir}/%{name}/test
 
-
 %check
 unset RELEASE_TESTING
 OPENSSL_ENABLE_SHA1_SIGNATURES=1 make test
@@ -167,6 +171,13 @@ OPENSSL_ENABLE_SHA1_SIGNATURES=1 make test
 %{_libexecdir}/%{name}
 
 %changelog
+* Mon May 26 2025 Jitka Plesnikova <jplesnik@redhat.com> - 1.94-3
+- Resolves: RHEL-92846 - Fix typo in macro
+
+* Thu May 22 2025 Jitka Plesnikova <jplesnik@redhat.com> - 1.94-2
+- Fix test suite to work with OpenSSL 3.4.0 and newer
+  Resolves: RHEL-92846
+
 * Mon Jun 17 2024 Jitka Plesnikova <jplesnik@redhat.com> - 1.94-1
 - Resolves: RHEL-40758
 - Update to 1.94
