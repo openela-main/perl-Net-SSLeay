@@ -6,13 +6,14 @@
 
 Name:		perl-Net-SSLeay
 Version:	1.94
-Release:	7%{?dist}
+Release:	8%{?dist}
 Summary:	Perl extension for using OpenSSL
 License:	Artistic-2.0
 URL:		https://metacpan.org/release/Net-SSLeay
 Source0:	https://cpan.metacpan.org/modules/by-module/Net/Net-SSLeay-%{version}.tar.gz
 Patch10:	Net-SSLeay-1.90-pkgconfig.patch
 Patch11:	Net-SSLeay-1.90-openssl3.0.0-tests-disable_TLS1_and_TLS1_1.patch
+Patch12:	Net-SSLeay-1.94-openssl3.4.0-tests-fix.patch
 # =========== Module Build ===========================
 BuildRequires:	coreutils
 BuildRequires:	findutils
@@ -106,6 +107,10 @@ with "%{_libexecdir}/%{name}/test".
 # Disable TLS1 and TLS1_1 from tests
 %patch -P 11 -p1
 
+# Fix test suite to work with OpenSSL 3.4.0 and newer
+# https://github.com/radiator-software/p5-net-ssleay/pull/520
+%patch -P 12 -p1
+
 # Fix permissions in examples to avoid bogus doc-file dependencies
 chmod -c 644 examples/*
 
@@ -165,6 +170,10 @@ OPENSSL_ENABLE_SHA1_SIGNATURES=1 make test
 %{_libexecdir}/%{name}
 
 %changelog
+* Tue May 20 2025 Andrea Bolognani <abologna@redhat.com> - 1.94-8
+- Fix test suite to work with OpenSSL 3.4.0 and newer
+  Resolves: RHEL-92601
+
 * Tue Oct 29 2024 Troy Dawson <tdawson@redhat.com> - 1.94-7
 - Bump release for October 2024 mass rebuild:
   Resolves: RHEL-64018
