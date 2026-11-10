@@ -6,7 +6,7 @@
 
 Name:		perl-Net-SSLeay
 Version:	1.94
-Release:	8%{?dist}
+Release:	9%{?dist}
 Summary:	Perl extension for using OpenSSL
 License:	Artistic-2.0
 URL:		https://metacpan.org/release/Net-SSLeay
@@ -137,6 +137,10 @@ find %{buildroot} -type f -name '*.bs' -empty -delete
 # Remove script we don't want packaged
 rm -f %{buildroot}%{perl_vendorarch}/Net/ptrtstrun.pl
 
+# Remove private key and related script from documentation
+rm -f examples/cb-testi.pl
+rm -f examples/server_key.pem
+
 # Install tests
 mkdir -p %{buildroot}%{_libexecdir}/%{name}
 cp -a t inc %{buildroot}%{_libexecdir}/%{name}
@@ -170,6 +174,10 @@ OPENSSL_ENABLE_SHA1_SIGNATURES=1 make test
 %{_libexecdir}/%{name}
 
 %changelog
+* Wed Apr 08 2026 Jitka Plesnikova <jplesnik@redhat.com> - 1.94-9
+- Resolves: RHEL-156845
+- Exclude private key from RPM documentation
+
 * Tue May 20 2025 Andrea Bolognani <abologna@redhat.com> - 1.94-8
 - Fix test suite to work with OpenSSL 3.4.0 and newer
   Resolves: RHEL-92601
